@@ -33,15 +33,18 @@ final class ConnectSheetController: NSWindowController {
     }
 
     private func buildView() -> NSView {
+        // Neither field carries the Connect action: `NSTextField(string:)` ships
+        // with `sendsActionOnEndEditing`, so an action here fires when focus
+        // *leaves* the field — tabbing to Session, or clicking into it, dialled
+        // the prefilled host and closed the sheet before the name was typed.
+        // Return still connects, through the default button's key equivalent,
+        // and `stringValue` reads the live field editor, so the text the user
+        // is still typing goes with it.
         hostField.placeholderString = "SSH host, ssh://user@host:22, or local"
         hostField.setAccessibilityIdentifier("HostField")
-        hostField.target = self
-        hostField.action = #selector(connectTapped)
 
         sessionField.placeholderString = "optional named session"
         sessionField.setAccessibilityIdentifier("SessionField")
-        sessionField.target = self
-        sessionField.action = #selector(connectTapped)
 
         knownHosts.pullsDown = false
         knownHosts.target = self
