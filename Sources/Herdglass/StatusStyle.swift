@@ -4,14 +4,30 @@ import HerdrClient
 /// One place that decides how an agent status looks and reads, so the sidebar
 /// dot, the attention ring and the window subtitle can never drift apart.
 enum StatusStyle {
-    /// Fill for the status dot. System colors so light and dark both work.
+    /// Colour of the status dot, filled or stroked. System colors so light and
+    /// dark both work. Green is "nothing is waiting on you" — an agent that has
+    /// finished, one that is blocked on you (you can act now) and an idle pane
+    /// alike; orange is the one state you cannot act on yet, a running agent.
     static func color(_ status: AgentStatus) -> NSColor {
         switch status {
-        case .blocked: return .systemOrange
-        case .done: return .systemBlue
-        case .working: return .systemGreen
-        case .idle: return .tertiaryLabelColor
+        case .blocked: return .systemGreen
+        case .done: return .systemGreen
+        case .working: return .systemOrange
+        case .idle: return .systemGreen
         case .unknown: return .tertiaryLabelColor
+        }
+    }
+
+    /// Whether that colour is a disc or an outline. The two views that draw a
+    /// dot — the sidebar/space-switcher `StatusDotView` and the tab strip's
+    /// smaller sibling — both ask here, or "idle is hollow" would be true in one
+    /// of them and not the other, which is what one place deciding prevents.
+    /// A hollow dot keeps the column aligned without claiming attention: idle
+    /// has an agent with nothing to say, `.unknown` has no agent at all.
+    static func isFilled(_ status: AgentStatus) -> Bool {
+        switch status {
+        case .blocked, .done, .working: return true
+        case .idle, .unknown: return false
         }
     }
 
@@ -73,16 +89,14 @@ final class StatusDotView: NSView {
         // a dot that grows with the base font size still reads as a dot.
         let inset = bounds.width * (unread ? 0.25 : 0.15)
         let core = bounds.insetBy(dx: inset, dy: inset)
-        if status == .unknown {
-            // Nothing to report: an outline keeps the column aligned without
-            // implying a state.
+        if StatusStyle.isFilled(status) {
+            StatusStyle.color(status).setFill()
+            NSBezierPath(ovalIn: core).fill()
+        } else {
             let outline = NSBezierPath(ovalIn: core.insetBy(dx: 0.5, dy: 0.5))
             outline.lineWidth = 1
             StatusStyle.color(status).setStroke()
             outline.stroke()
-        } else {
-            StatusStyle.color(status).setFill()
-            NSBezierPath(ovalIn: core).fill()
         }
         guard unread else { return }
         let width = max(bounds.width * 0.15, 1)

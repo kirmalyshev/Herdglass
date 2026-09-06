@@ -10,6 +10,7 @@ Rendering uses [libghostty](https://github.com/ghostty-org/ghostty), built by `S
 - `Sources/Herdglass/` — AppKit window, sidebar (hosts → spaces), tab strip, split container, connect sheet, Ghostty host view, ghostty-config reader (`GhosttyConfig.swift`), the chrome's type scale (`ChromeMetrics.swift`), the opt-in space keys (`SpaceKeys.swift`), the ⌘`/held-⌥⌘ spaces overlay (`SpaceSwitcher.swift`), settings window and macOS notifications (`AgentNotifications.swift`)
 - `Sources/Herdglass/Ghostty/` — the libghostty glue: `TerminalHost` (the `ghostty_app_t` and its callbacks), `TerminalSession` (one surface), `TerminalSurfaceView` (the `NSView` and its input)
 - `Tests/HerdrClientTests/` — parsing, framing, and RPC-transport tests
+- `Tests/HerdglassTests/` — the chrome's own rules, i.e. what a status looks like; nothing that needs a window
 - `Scripts/libghostty.sh` — build `Vendor/GhosttyKit.xcframework` from the pinned ghostty; `--check` compares it with the pin
 - `Scripts/dev.sh` — build `.build/Herdglass.app` and optionally `--run` (extra args pass through)
 - `Scripts/release.sh` — optimized build at `.build/release-app/Herdglass.app`, `--install` to `/Applications`, optionally `--run`
@@ -117,6 +118,7 @@ The first four interact. Read all four before touching `HerdrRPC` or `SessionCon
 - **A sidebar subtitle truncates at the tail.** It is a space's tabs in order, and the first is the one most likely wanted. `.byTruncatingHead` is right for a path and exactly wrong for a list.
 - `SidebarView.apply` and `TabBarView.apply` reload only when row identity changes and reconfigure cells in place otherwise; a full `reloadData` on every snapshot would throw away scroll position and the user's collapsed hosts.
 - A sidebar row is a host or a space, and each says its state one way only: a host gets an icon (tinted when something inside wants attention) and a spinner while it dials, a space gets the status dot. A remembered but unattached host is dimmed, not hidden — selecting it is how the user dials it.
+- **The status dot is two questions, and `StatusStyle` answers both.** The colour says whether anything is running — orange for `working`, green for everything with an agent that is not (`done`, `blocked`, `idle`) — and `StatusStyle.isFilled` says whether the dot is a disc or an outline: filled while an agent has something to say, hollow for `idle` and for `unknown`, which is the one status with no agent at all and keeps `tertiaryLabelColor` to say so. Both views that draw a dot (`StatusDotView`, for the sidebar and the space switcher, and `TabStatusDot` in the tab strip) ask `isFilled` rather than testing a status themselves — the two of them held the same `status == .unknown` test in duplicate, and one place deciding is what stops a rule like "idle is hollow" from being true in one strip and not the other. The unread ring is a separate signal and keeps orange/blue (`attentionColor`), which is now the only thing that separates blocked from done. `statusColorsAreGreenExceptAWorkingAgent` and `onlyAnAgentWithSomethingToSayIsFilled` pin the mapping.
 - Pane borders mean two different things: the loud ring is attention (pulsing while blocked), the quiet accent border says which pane of a *split* holds the keyboard. A tab with one pane never draws the quiet one.
 - Only the selected host renders. A pane counts as read when it is on screen, i.e. in the selected tab of the visible host (`SessionController.isVisible`), so a split of four panes clears four attention flags.
 - **A pane off screen says so through macOS, not through a blinking toolbar.** Herdr's own notion of a notification is a background agent changing state, and its config picks the delivery (`[ui.toast] delivery`). A GUI client has no toast layer and no outer terminal, so `AgentNotifications` takes the OS route on Herdr's behalf. Three rules keep it quiet: notify on the *transition* into `blocked`/`done`, never on a state that is merely still true; skip a reason a pane has already been notified about (`SessionController.notifiedReasons` — Herdr's detection genuinely flaps `blocked → working → blocked` inside a second while an agent redraws its prompt); and withdraw the notification the moment the pane is read, so `markRead` and Notification Center say the same thing. One identifier per pane (`pane-<id>`) is what makes the last two possible.
@@ -144,7 +146,7 @@ The first four interact. Read all four before touching `HerdrRPC` or `SessionCon
 ## Verify
 
 ```bash
-swift test --filter HerdrClientTests
+swift test                       # or --filter HerdrClientTests for the client alone
 swift build --product Herdglass
 .build/debug/Herdglass --show-ghostty-config
 # needs a running herdr server:

@@ -48,5 +48,13 @@ let package = Package(
             dependencies: ["HerdrClient"],
             path: "Tests/HerdrClientTests"
         ),
+        // The chrome's own rules — what a status looks like, and nothing that
+        // needs a window. Separate from HerdrClientTests so the client tests
+        // stay buildable without libghostty.
+        .testTarget(
+            name: "HerdglassTests",
+            dependencies: ["Herdglass"],
+            path: "Tests/HerdglassTests"
+        ),
     ]
 )

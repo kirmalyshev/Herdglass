@@ -360,14 +360,14 @@ private final class TabStatusDot: NSView {
     override func draw(_ dirtyRect: NSRect) {
         let inset = bounds.width * (unread ? 0.25 : 0.125)
         let core = bounds.insetBy(dx: inset, dy: inset)
-        if status == .unknown {
+        if StatusStyle.isFilled(status) {
+            StatusStyle.color(status).setFill()
+            NSBezierPath(ovalIn: core).fill()
+        } else {
             let outline = NSBezierPath(ovalIn: core.insetBy(dx: 0.5, dy: 0.5))
             outline.lineWidth = 1
             StatusStyle.color(status).setStroke()
             outline.stroke()
-        } else {
-            StatusStyle.color(status).setFill()
-            NSBezierPath(ovalIn: core).fill()
         }
         guard unread else { return }
         let width = max(bounds.width * 0.15, 1)
